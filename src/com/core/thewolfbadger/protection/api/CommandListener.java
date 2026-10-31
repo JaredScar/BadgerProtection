@@ -1,144 +1,263 @@
 package com.core.thewolfbadger.protection.api;
 
 import com.core.thewolfbadger.protection.main.Main;
+import com.core.thewolfbadger.protection.main.ProtectionManager;
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
+import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable;
 
-/**
- * Created with IntelliJ IDEA.
- * User: TheWolfBadger
- * Date: 8/18/14
- * Time: 12:04 PM
- */
-public class CommandListener implements CommandExecutor {
-    @Override
-    public boolean onCommand(CommandSender sender, Command cmd, String commandLabel, String[] args) {
-        if(cmd.getName().equalsIgnoreCase("prot")) {
-            if(sender.hasPermission("BadgerProtection.Admin")) {
-            switch (args.length) {
-                case 0:
-                    //Help Menu
-                    sender.sendMessage(ChatColor.GOLD+"./prot wand - Go into "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.GOLD+" selection mode...");
-                    sender.sendMessage("");
-                    sender.sendMessage(ChatColor.GOLD+"./prot setspawn - Set the spawn for the command /spawn...");
-                    sender.sendMessage("");
-                    sender.sendMessage(ChatColor.GOLD+"./prot cancel - Exit the "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.GOLD+" selection mode...");
-                    sender.sendMessage("");
-                    sender.sendMessage(ChatColor.GOLD+"./prot complete - Complete the "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.GOLD+" selection mode if you set the positions...");
-                    sender.sendMessage("");
-                    sender.sendMessage(ChatColor.GOLD+"./spawn - Teleport to the "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.GOLD+" set spawn!");
-                    break;
-                case 1:
-                    if(args[0].equalsIgnoreCase("wand")) {
-                        //Wand will be a bone
-                        if(sender instanceof Player) {
-                            Player p = (Player) sender;
-                            if(!Main.getMain().usingWand.contains(p.getUniqueId())) {
-                            p.getInventory().addItem(new ItemStack(Material.BONE));
-                            p.updateInventory();
-                                Main.getMain().usingWand.add(p.getUniqueId());
-                            p.sendMessage(ChatColor.GOLD+"You have been given "+ChatColor.YELLOW+"TheWolfBadger"+ChatColor.GOLD+" Bone of selecting!");
-                            p.sendMessage("");
-                            p.sendMessage(ChatColor.GRAY+"Select two points with right-clicking and left-clicking and type '/prot complete' when you have selected both points...");
-                            p.sendMessage("");
-                            p.sendMessage(ChatColor.GRAY+"At any given point in time, type '/prot cancel' to exit selection mode...");
-                            } else {
-                                p.sendMessage(ChatColor.RED+"You are already in "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.RED+" selection mode!");
-                            }
-                        } else {
-                            sender.sendMessage(ChatColor.RED+"You must be a player to run this command!");
-                        }
-                    } else
-                    if(args[0].equalsIgnoreCase("setspawn")) {
-                        if(sender instanceof Player) {
-                            Player p = (Player) sender;
-                            API.getAPI().setSpawn(p.getLocation());
-                            p.sendMessage(ChatColor.GOLD+"The spawn for "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.GOLD+" has been set!");
-                        } else {
-                            sender.sendMessage(ChatColor.RED+"You must be a player to run this command!");
-                        }
-                    } else
-                    if(args[0].equalsIgnoreCase("cancel")) {
-                        if(sender instanceof Player) {
-                            Player p = (Player) sender;
-                            if(Main.getMain().usingWand.contains(p.getUniqueId())) {
-                                p.getInventory().remove(Material.BONE);
-                                Main.getMain().usingWand.remove(p.getUniqueId());
-                                p.sendMessage(ChatColor.GOLD+"You have been removed from "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.GOLD+" selection mode!");
-                            } else {
-                                p.sendMessage(ChatColor.RED+"You are currently not in "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.RED+" selection mode!");
-                            }
-                        } else {
-                            sender.sendMessage(ChatColor.RED+"You must be a player to run this command!");
-                        }
-                    } else
-                    if(args[0].equalsIgnoreCase("complete")) {
-                        if(sender instanceof Player) {
-                            Player p = (Player) sender;
-                            if(Main.getMain().usingWand.contains(p.getUniqueId())) {
-                                p.getInventory().remove(Material.BONE);
-                                Main.getMain().usingWand.remove(p.getUniqueId());
-                                if(API.getAPI().areSet()) {
-                                    API.getAPI().complete();
-                                    p.sendMessage(ChatColor.GOLD+"You have set the spawn area for "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.GOLD+"!");
-                                } else {
-                                    p.sendMessage(ChatColor.RED+"You have not set the spawn area for "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.RED+" correctly!");
-                                }
-                            } else {
-                                p.sendMessage(ChatColor.RED+"You must be in "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.RED+" selection mode to do this!");
-                            }
-                        } else {
-                            sender.sendMessage(ChatColor.RED+"You must be a player to run this command!");
-                        }
-                    }
-                    break;
-                }
-            }
-        } else
-        if(cmd.getName().equalsIgnoreCase("spawn")) {
-            if(API.getAPI().allSet()) {
-            if(sender instanceof Player) {
-                final Player p = (Player) sender;
-                if(!Main.getMain().teleporting.contains(p.getUniqueId())) {
-                    boolean bool = false;
-                    for(Entity ents : p.getNearbyEntities(Main.getMain().getConfig().getDouble("CheckRadius"), Main.getMain().getConfig().getDouble("CheckRadius"), Main.getMain().getConfig().getDouble("CheckRadius"))) {
-                        if(ents instanceof Player) {
-                            bool = true;
-                            break;
-                        }
-                    }
-                    if(!bool) {
-                        p.teleport(API.getAPI().getSpawn());
-                    } else {
-                        Main.getMain().teleporting.add(p.getUniqueId());
-                        p.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.getMain().getConfig().getString("Messages.PlayersNearby").replace("{DELAY}", String.valueOf(Main.getMain().getConfig().getLong("TeleportDelay")))));
-                        new BukkitRunnable() {
-                            @Override
-                            public void run() {
-                                if(Main.getMain().teleporting.contains(p.getUniqueId())) {
-                                    p.teleport(API.getAPI().getSpawn());
-                                    }
-                                }
-                            }.runTaskLater(Main.getMain(), Main.getMain().getConfig().getLong("TeleportDelay"));
-                        }
-                    } else {
-                    p.sendMessage(ChatColor.RED+"You are already waiting to be teleported!");
-                    }
-                } else {
-                sender.sendMessage(ChatColor.RED+"You must be a player to run this command!");
-                }
-            } else {
-                sender.sendMessage(ChatColor.RED+"Everything in the config must be set for you to run this command!");
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.UUID;
+
+public class CommandListener implements CommandExecutor, TabCompleter {
+    private static final String[] SUBCOMMANDS = new String[] {"wand", "setspawn", "cancel", "complete", "info", "reload"};
+
+    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+        if (cmd.getName().equalsIgnoreCase("prot")) {
+            return onProt(sender, args);
+        }
+        if (cmd.getName().equalsIgnoreCase("spawn")) {
+            return onSpawn(sender);
+        }
+        return false;
+    }
+
+    public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
+        if (!cmd.getName().equalsIgnoreCase("prot") || !Main.getMain().isAdmin(sender)) {
+            return Collections.emptyList();
+        }
+        if (args.length != 1) {
+            return Collections.emptyList();
+        }
+        String prefix = args[0].toLowerCase();
+        List<String> matches = new ArrayList<String>();
+        for (int i = 0; i < SUBCOMMANDS.length; i++) {
+            if (SUBCOMMANDS[i].startsWith(prefix)) {
+                matches.add(SUBCOMMANDS[i]);
             }
         }
+        return matches;
+    }
+
+    private boolean onProt(CommandSender sender, String[] args) {
+        Main plugin = Main.getMain();
+        if (!plugin.isAdmin(sender)) {
+            plugin.send(sender, "Messages.NoPermission");
+            return true;
+        }
+        if (args.length == 0) {
+            sendHelp(sender);
+            return true;
+        }
+        String sub = args[0].toLowerCase();
+        if (sub.equals("wand")) {
+            giveWand(sender);
+        } else if (sub.equals("setspawn")) {
+            setSpawn(sender);
+        } else if (sub.equals("cancel")) {
+            cancelSelection(sender);
+        } else if (sub.equals("complete")) {
+            completeSelection(sender);
+        } else if (sub.equals("info")) {
+            sendInfo(sender);
+        } else if (sub.equals("reload")) {
+            plugin.reloadProtection();
+            plugin.send(sender, "Messages.Reloaded");
+        } else {
+            sender.sendMessage(ChatColor.RED + "Unknown subcommand. Try /prot for help.");
+        }
         return true;
+    }
+
+    private boolean onSpawn(CommandSender sender) {
+        Main plugin = Main.getMain();
+        if (!(sender instanceof Player)) {
+            plugin.send(sender, "Messages.PlayersOnly");
+            return true;
+        }
+        Player player = (Player) sender;
+        if (!player.hasPermission("badgerprotection.spawn")) {
+            plugin.send(player, "Messages.NoPermission");
+            return true;
+        }
+        if (!API.getAPI().isReady()) {
+            plugin.send(player, "Messages.NotReady");
+            return true;
+        }
+        ProtectionManager manager = plugin.getManager();
+        if (manager.isWarming(player)) {
+            plugin.send(player, "Messages.AlreadyTeleporting");
+            return true;
+        }
+        if (hasNearbyPlayers(player) && plugin.teleportDelay() > 0) {
+            plugin.send(player, "Messages.PlayersNearby", "{DELAY}", String.valueOf(plugin.teleportDelay()));
+            manager.startWarmup(player);
+            return true;
+        }
+        manager.arriveAtSpawn(player);
+        return true;
+    }
+
+    private void giveWand(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            Main.getMain().send(sender, "Messages.PlayersOnly");
+            return;
+        }
+        Player player = (Player) sender;
+        API regions = API.getAPI();
+        if (regions.isSelecting(player.getUniqueId()) && BlockSelectionMode.hasWand(player)) {
+            player.sendMessage(ChatColor.RED + "You are already selecting a BadgerProtection region.");
+            return;
+        }
+        if (!BlockSelectionMode.hasWand(player) && player.getInventory().firstEmpty() == -1) {
+            player.sendMessage(ChatColor.RED + "Your inventory is full.");
+            return;
+        }
+        BlockSelectionMode.removeWands(player);
+        HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(BlockSelectionMode.createWand());
+        if (!leftover.isEmpty()) {
+            player.sendMessage(ChatColor.RED + "Your inventory is full.");
+            return;
+        }
+        regions.startSelection(player.getUniqueId());
+        player.sendMessage(ChatColor.GOLD + "You received the " + ChatColor.YELLOW + "Protection Wand" + ChatColor.GOLD + ".");
+        player.sendMessage(ChatColor.GRAY + "Left-click sets the first corner. Right-click sets the second.");
+        player.sendMessage(ChatColor.GRAY + "Then run /prot complete, or /prot cancel to put the wand away.");
+    }
+
+    private void setSpawn(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            Main.getMain().send(sender, "Messages.PlayersOnly");
+            return;
+        }
+        Player player = (Player) sender;
+        Location location = player.getLocation();
+        API.getAPI().setSpawn(location);
+        player.sendMessage(ChatColor.GOLD + "Spawn point set for " + ChatColor.YELLOW + "BadgerProtection" + ChatColor.GOLD + ".");
+        if (API.getAPI().hasRegion() && !API.getAPI().getCuboid().contains(location)) {
+            player.sendMessage(ChatColor.RED + "That spot is outside the protected region, so players who warp here will not be protected.");
+        }
+    }
+
+    private void cancelSelection(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            Main.getMain().send(sender, "Messages.PlayersOnly");
+            return;
+        }
+        Player player = (Player) sender;
+        if (!API.getAPI().isSelecting(player.getUniqueId())) {
+            player.sendMessage(ChatColor.RED + "You are not selecting a region.");
+            return;
+        }
+        API.getAPI().clearSelection(player.getUniqueId());
+        BlockSelectionMode.removeWands(player);
+        player.sendMessage(ChatColor.GOLD + "Selection cancelled.");
+    }
+
+    private void completeSelection(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            Main.getMain().send(sender, "Messages.PlayersOnly");
+            return;
+        }
+        Player player = (Player) sender;
+        API regions = API.getAPI();
+        UUID id = player.getUniqueId();
+        if (!regions.isSelecting(id)) {
+            player.sendMessage(ChatColor.RED + "You are not selecting a region. Run /prot wand first.");
+            return;
+        }
+        if (!regions.hasBoth(id)) {
+            player.sendMessage(ChatColor.RED + "Select both corners before completing the region.");
+            return;
+        }
+        if (!regions.sameWorld(id)) {
+            player.sendMessage(ChatColor.RED + "Both corners have to be in the same world.");
+            return;
+        }
+        if (!regions.saveRegion(regions.getFirst(id), regions.getSecond(id))) {
+            player.sendMessage(ChatColor.RED + "Could not save that region.");
+            return;
+        }
+        Cuboid region = regions.getCuboid();
+        regions.clearSelection(id);
+        BlockSelectionMode.removeWands(player);
+        player.sendMessage(ChatColor.GOLD + "Spawn region saved (" + region.getVolume() + " blocks).");
+        if (regions.hasSpawn() && !region.contains(regions.getSpawn())) {
+            player.sendMessage(ChatColor.RED + "The /spawn point is outside this region. Stand inside it and run /prot setspawn.");
+        } else if (!regions.hasSpawn()) {
+            player.sendMessage(ChatColor.RED + "Set the warp point with /prot setspawn before players can use /spawn.");
+        }
+        Main.getMain().grantPlayersInside();
+    }
+
+    private void sendInfo(CommandSender sender) {
+        API regions = API.getAPI();
+        sender.sendMessage(ChatColor.GOLD + "BadgerProtection");
+        if (regions.hasRegion()) {
+            Cuboid region = regions.getCuboid();
+            sender.sendMessage(ChatColor.GRAY + "Region: " + ChatColor.WHITE + region.getWorldName()
+                    + " (" + region.getLowerX() + ", " + region.getLowerY() + ", " + region.getLowerZ()
+                    + ") to (" + region.getUpperX() + ", " + region.getUpperY() + ", " + region.getUpperZ() + ")");
+        } else {
+            sender.sendMessage(ChatColor.GRAY + "Region: " + ChatColor.RED + "not set");
+        }
+        if (regions.hasSpawn()) {
+            Location spawn = regions.getSpawn();
+            sender.sendMessage(ChatColor.GRAY + "Spawn: " + ChatColor.WHITE + spawn.getWorld().getName()
+                    + " " + formatCoord(spawn.getX()) + ", " + formatCoord(spawn.getY()) + ", " + formatCoord(spawn.getZ()));
+        } else {
+            sender.sendMessage(ChatColor.GRAY + "Spawn: " + ChatColor.RED + "not set");
+        }
+        sender.sendMessage(ChatColor.GRAY + "/spawn delay: " + ChatColor.WHITE + Main.getMain().teleportDelay() + "s"
+                + ChatColor.GRAY + "  radius: " + ChatColor.WHITE + (int) Main.getMain().checkRadius());
+        if (sender instanceof Player) {
+            Player player = (Player) sender;
+            String state = Main.getMain().getManager().isProtected(player) ? ChatColor.GREEN + "protected" : ChatColor.RED + "unprotected";
+            sender.sendMessage(ChatColor.GRAY + "You are " + state + ChatColor.GRAY + ". Walking back into spawn does not restore this.");
+        }
+    }
+
+    private void sendHelp(CommandSender sender) {
+        sender.sendMessage(ChatColor.GOLD + "BadgerProtection");
+        sender.sendMessage(ChatColor.YELLOW + "/prot wand" + ChatColor.GRAY + " - Select the two corners of spawn");
+        sender.sendMessage(ChatColor.YELLOW + "/prot setspawn" + ChatColor.GRAY + " - Set the /spawn warp to where you stand");
+        sender.sendMessage(ChatColor.YELLOW + "/prot complete" + ChatColor.GRAY + " - Save the selected region");
+        sender.sendMessage(ChatColor.YELLOW + "/prot cancel" + ChatColor.GRAY + " - Leave selection mode");
+        sender.sendMessage(ChatColor.YELLOW + "/prot info" + ChatColor.GRAY + " - Show the region, spawn, and your status");
+        sender.sendMessage(ChatColor.YELLOW + "/prot reload" + ChatColor.GRAY + " - Reload config.yml");
+        sender.sendMessage(ChatColor.YELLOW + "/spawn" + ChatColor.GRAY + " - Warp to spawn and regain protection. Nearby players add a wait. Moving cancels it.");
+    }
+
+    private boolean hasNearbyPlayers(Player player) {
+        double radius = Main.getMain().checkRadius();
+        if (radius <= 0D) {
+            return false;
+        }
+        List<Entity> nearby = player.getNearbyEntities(radius, radius, radius);
+        for (int i = 0; i < nearby.size(); i++) {
+            Entity entity = nearby.get(i);
+            if (!(entity instanceof Player)) {
+                continue;
+            }
+            Player other = (Player) entity;
+            if (!other.isOnline() || other.isDead()) {
+                continue;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private String formatCoord(double value) {
+        return String.valueOf(Math.round(value * 10D) / 10D);
     }
 }

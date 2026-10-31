@@ -3,173 +3,148 @@ package com.core.thewolfbadger.protection.main;
 import com.core.thewolfbadger.protection.api.API;
 import com.core.thewolfbadger.protection.api.BlockSelectionMode;
 import com.core.thewolfbadger.protection.api.CommandListener;
-import com.core.thewolfbadger.protection.api.Cuboid;
 import org.bukkit.ChatColor;
-import org.bukkit.Location;
-import org.bukkit.block.Block;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.EntityExplodeEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
 /**
- * Created with IntelliJ IDEA.
- * User: TheWolfBadger
- * Date: 8/18/14
- * Time: 10:49 AM
+ * jProtection-style MCPVP spawn protection. Leaving spawn drops the flag.
+ * Walking back in does not restore it. /spawn does, after a wait if someone is nearby.
  */
-public class Main extends JavaPlugin implements Listener {
-    public static Main m;
-    public ArrayList<UUID> hasProt = new ArrayList<UUID>();
-    public ArrayList<UUID> teleporting = new ArrayList<UUID>();
-    public ArrayList<UUID> usingWand = new ArrayList<UUID>();
-    CommandListener cl;
+public class Main extends JavaPlugin {
+    private static Main instance;
+    private ProtectionManager manager;
+
     public void onEnable() {
-        m = this;
-        this.cl = new CommandListener();
-        getCommand("prot").setExecutor(this.cl);
-        getCommand("spawn").setExecutor(this.cl);
-        this.getServer().getPluginManager().registerEvents(this, this);
-        this.getServer().getPluginManager().registerEvents(new BlockSelectionMode(), this);
+        instance = this;
+        saveDefaultConfig();
+        ensureConfig();
+        API.init();
+        manager = new ProtectionManager(this);
+        CommandListener commands = new CommandListener();
+        register("prot", commands, commands);
+        register("spawn", commands, null);
+        getServer().getPluginManager().registerEvents(new ProtectionListener(this), this);
+        getServer().getPluginManager().registerEvents(new BlockSelectionMode(), this);
+        if (API.getAPI().isReady()) {
+            manager.grantEveryoneInside();
+            getLogger().info("Spawn region and spawn point are set.");
+        } else if (getConfig().isSet("CuboidSpawn") || getConfig().isSet("SpawnLoc")) {
+            getLogger().warning("Spawn data is saved, but its world is not loaded yet. It will be picked up when the world loads.");
+        } else {
+            getLogger().info("Spawn is not set up yet. Use /prot wand and /prot setspawn.");
+        }
     }
-    public void onDisable() {}
+
+    public void onDisable() {
+        if (manager != null) {
+            manager.shutdown();
+        }
+        instance = null;
+    }
+
+    public void reloadProtection() {
+        reloadConfig();
+        ensureConfig();
+        API.getAPI().loadCache();
+        manager.dropProtectedPlayersOutside();
+    }
+
     public static Main getMain() {
-        return m;
+        return instance;
     }
-    @EventHandler
-    public void onMove(PlayerMoveEvent e) {
-        if(API.getAPI().allSet()) {
-        Cuboid cube = API.getAPI().getCuboid();
-        Player p = e.getPlayer();
-        Location from = e.getFrom();
-        Location to = e.getTo();
-        if(teleporting.contains(p.getUniqueId())) {
-            if(to.getX() > from.getX() || to.getZ() > from.getZ() || to.getY() > from.getY()) {
-                teleporting.remove(p.getUniqueId());
-                p.sendMessage(ChatColor.translateAlternateColorCodes('&', getConfig().getString("Messages.TeleportCancelled")));
-            }
-        }
-        if(hasProt.contains(p.getUniqueId())) {
-            if(!cube.isInCuboid(p)) {
-                p.sendMessage(ChatColor.translateAlternateColorCodes('&', getConfig().getString("Messages.LostProtection")));
-                hasProt.remove(p.getUniqueId());
-            }
-        }
-        }
+
+    public ProtectionManager getManager() {
+        return manager;
     }
-    @EventHandler
-    public void onTeleport(PlayerTeleportEvent e) {
-        if(API.getAPI().allSet()) {
-        Location from = e.getFrom();
-        Location to = e.getTo();
-        Cuboid cube = API.getAPI().getCuboid();
-        Player p = e.getPlayer();
-        if(hasProt.contains(p.getUniqueId())) {
-            if(!cube.contains(to)) {
-            hasProt.remove(p.getUniqueId());
-            p.sendMessage(ChatColor.translateAlternateColorCodes('&', getConfig().getString("Messages.LostProtection")));
-            }
+
+    public boolean isAdmin(CommandSender sender) {
+        return sender.hasPermission("badgerprotection.admin") || sender.hasPermission("BadgerProtection.Admin");
+    }
+
+    public int teleportDelay() {
+        return Math.max(0, getConfig().getInt("TeleportDelay", 10));
+    }
+
+    public double checkRadius() {
+        return Math.max(0D, getConfig().getDouble("CheckRadius", 10D));
+    }
+
+    public void send(CommandSender sender, String path) {
+        send(sender, path, null, null);
+    }
+
+    public void send(CommandSender sender, String path, String token, String value) {
+        if (sender == null) {
+            return;
         }
-        if(!hasProt.contains(p.getUniqueId())) {
-            if(cube.contains(to)) {
-                hasProt.add(p.getUniqueId());
-                p.sendMessage(ChatColor.translateAlternateColorCodes('&', getConfig().getString("Messages.GainProtection")));
-                }
-            }
+        String message = format(path, token, value);
+        if (message.length() > 0) {
+            sender.sendMessage(message);
         }
     }
-    @EventHandler
-    public void onPlace(BlockPlaceEvent e) {
-        if(API.getAPI().allSet()) {
-        Player p = e.getPlayer();
-        Location l = e.getBlock().getLocation();
-        Cuboid cube = API.getAPI().getCuboid();
-        if(cube.contains(l) && !p.hasPermission("BadgerProtection.Admin")) {
-            e.setCancelled(true);
-            p.sendMessage(ChatColor.translateAlternateColorCodes('&', getConfig().getString("Messages.PreventPlace")));
-            }
+
+    public String format(String path, String token, String value) {
+        String raw = getConfig().getString(path);
+        if (raw == null || raw.length() == 0) {
+            return "";
+        }
+        String colored = ChatColor.translateAlternateColorCodes('&', raw);
+        if (token != null && value != null) {
+            colored = colored.replace(token, value);
+        }
+        return colored;
+    }
+
+    private void register(String name, CommandListener executor, CommandListener tab) {
+        PluginCommand command = getCommand(name);
+        if (command == null) {
+            getLogger().severe("Command /" + name + " is missing from plugin.yml.");
+            return;
+        }
+        command.setExecutor(executor);
+        if (tab != null) {
+            command.setTabCompleter(tab);
         }
     }
-    @EventHandler
-    public void onBreak(BlockBreakEvent e) {
-        if(API.getAPI().allSet()) {
-        Player p = e.getPlayer();
-        Location l = e.getBlock().getLocation();
-        Cuboid cube = API.getAPI().getCuboid();
-        if(cube.contains(l) && !p.hasPermission("BadgerProtection.Admin")) {
-            e.setCancelled(true);
-            p.sendMessage(ChatColor.translateAlternateColorCodes('&', getConfig().getString("Messages.PreventBreak")));
-            }
+
+    private void ensureConfig() {
+        boolean dirty = false;
+        dirty = setIfMissing("Messages.NoPermission", "&cYou do not have permission to do that.") || dirty;
+        dirty = setIfMissing("Messages.NotReady", "&cSpawn protection has not been fully set up yet.") || dirty;
+        dirty = setIfMissing("Messages.AlreadyTeleporting", "&cYou are already waiting to be teleported!") || dirty;
+        dirty = setIfMissing("Messages.PlayersOnly", "&cYou must be a player to do that.") || dirty;
+        dirty = setIfMissing("Messages.Reloaded", "&aBadgerProtection configuration reloaded.") || dirty;
+        dirty = replaceExact("Messages.PreventPlace",
+                "&cYou can not break a block protected by &eBadgerProtection&c!",
+                "&cYou cannot place blocks in &eBadgerProtection&c!") || dirty;
+        dirty = replaceExact("Messages.PreventBreak",
+                "&cYou can not place in a Cuboid protected by &eBadgerProtection&c!",
+                "&cYou cannot break blocks in &eBadgerProtection&c!") || dirty;
+        if (dirty) {
+            saveConfig();
         }
     }
-    @EventHandler
-    public void onDam(EntityDamageByEntityEvent e) {
-        if(API.getAPI().allSet()) {
-        Entity ent = e.getEntity();
-        Entity damager = e.getDamager();
-        if(ent instanceof Player && damager instanceof Player) {
-            Player p = (Player) ent;
-            Player damageer = (Player) damager;
-            if(hasProt.contains(p.getUniqueId())) {
-                damageer.sendMessage(ChatColor.translateAlternateColorCodes('&', getConfig().getString("Messages.PlayerHasProtection").replace("{PLAYER}", p.getName())));
-            } else
-                if(hasProt.contains(damageer.getUniqueId()) && !hasProt.contains(p.getUniqueId())) {
-                    hasProt.remove(damageer.getUniqueId());
-                    damageer.sendMessage(ChatColor.translateAlternateColorCodes('&', getConfig().getString("Messages.LostProtection")));
-                }
-            }
+
+    private boolean setIfMissing(String path, Object value) {
+        if (getConfig().isSet(path)) {
+            return false;
         }
+        getConfig().set(path, value);
+        return true;
     }
-    @EventHandler
-    public void onJoin(PlayerJoinEvent e) {
-        if(API.getAPI().allSet()) {
-        Player p = e.getPlayer();
-        Cuboid cube = API.getAPI().getCuboid();
-        if(cube.isInCuboid(p)) {
-            hasProt.add(p.getUniqueId());
+
+    private boolean replaceExact(String path, String previous, String updated) {
+        String current = getConfig().getString(path);
+        if (current == null || !current.equals(previous)) {
+            return false;
         }
-        p.sendMessage(ChatColor.GOLD+"This server is using "+ChatColor.GRAY+"{"+ChatColor.YELLOW+"BadgerProtection"+ChatColor.GRAY+"}"+ChatColor.GOLD+" as their Spawn Protection --- created by TheWolfBadger (Bukkit).");
-        }
+        getConfig().set(path, updated);
+        return true;
     }
-    @EventHandler
-    public void onDam(EntityDamageEvent e) {
-        if(API.getAPI().allSet()) {
-        Entity damaged = e.getEntity();
-        EntityDamageEvent.DamageCause cause = e.getCause();
-        if(damaged instanceof Player) {
-            Player p = (Player) damaged;
-            if(hasProt.contains(p.getUniqueId())) {
-                e.setCancelled(true);
-                }
-            }
-        }
-    }
-    @EventHandler
-    public void onExplode(EntityExplodeEvent e) {
-        if(API.getAPI().allSet()) {
-        Entity ent = e.getEntity();
-        Cuboid cube = API.getAPI().getCuboid();
-        List<Block> blocksAffect = e.blockList();
-        for(Block blocks : blocksAffect) {
-            Location chek = blocks.getLocation();
-            if(cube.contains(chek)) {
-                e.setCancelled(true);
-                break;
-                }
-            }
-        }
+
+    public void grantPlayersInside() {
+        manager.grantEveryoneInside();
     }
 }

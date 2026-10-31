@@ -50,6 +50,9 @@ public class Cuboid implements Iterable<Block>, Cloneable, ConfigurationSerializ
     public Location getLoc2() {
         return this.l2;
     }
+    public String getWorldName() {
+        return this.worldName;
+    }
     public boolean isInCuboid(Player p) {
         if(this.contains(p.getLocation())) {
             return true;
@@ -401,6 +404,7 @@ public class Cuboid implements Iterable<Block>, Cloneable, ConfigurationSerializ
      * @return true if the Location is within this Cuboid, false otherwise
      */
     public boolean contains(Location l) {
+        if (l == null || l.getWorld() == null) return false;
         if (!this.worldName.equals(l.getWorld().getName())) return false;
         return this.contains(l.getBlockX(), l.getBlockY(), l.getBlockZ());
     }

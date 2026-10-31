@@ -1,0 +1,23 @@
+name: BadgerProtection
+main: com.core.thewolfbadger.protection.main.Main
+version: 1.2
+author: TheWolfBadger
+description: MCPVP spawn protection. Leaving spawn drops it, and only /spawn gives it back.
+commands:
+  prot:
+    description: Set up and manage the spawn region
+    usage: /prot <wand|setspawn|cancel|complete|info|reload>
+    aliases: [badgerprot, bp]
+  spawn:
+    description: Teleport to the protected spawn
+    usage: /spawn
+permissions:
+  badgerprotection.admin:
+    description: Create and manage the spawn region, and build inside it
+    default: op
+  BadgerProtection.Admin:
+    description: Legacy admin permission
+    default: op
+  badgerprotection.spawn:
+    description: Use /spawn
+    default: true

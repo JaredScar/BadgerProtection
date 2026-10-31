@@ -2,74 +2,115 @@ package com.core.thewolfbadger.protection.api;
 
 import com.core.thewolfbadger.protection.main.Main;
 import org.bukkit.ChatColor;
-import org.bukkit.GameMode;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import java.util.UUID;
 
 /**
- * Created with IntelliJ IDEA.
- * User: TheWolfBadger
- * Date: 8/18/14
- * Time: 12:42 PM
+ * Bone wand used to mark the two corners of the spawn region.
+ * Left click sets the first corner and right click sets the second.
  */
 public class BlockSelectionMode implements Listener {
-    @EventHandler
-    public void onBreak(BlockBreakEvent e) {
-        if(Main.getMain().usingWand.contains(e.getPlayer().getUniqueId())) {
-            e.setCancelled(true);
-            if(e.getPlayer().getItemInHand().getType().equals(Material.BONE)) {
-                if(e.getPlayer().getGameMode() == GameMode.CREATIVE) {
-                    e.getPlayer().sendMessage(ChatColor.GOLD+"First position has been set for "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.GOLD+"!");
-                    API.getAPI().setLoc1(e.getBlock().getLocation());
-                    if(API.getAPI().areSet()) {
-                        e.getPlayer().sendMessage("");
-                        e.getPlayer().sendMessage(ChatColor.GOLD+"The two positions for "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.GOLD+" are set!");
-                        e.getPlayer().sendMessage("");
-                        e.getPlayer().sendMessage(ChatColor.GOLD+"You are ready to type '/prot complete'!");
-                    }
-                }
+    public static final String WAND_NAME = ChatColor.YELLOW + "Protection Wand";
+
+    public static ItemStack createWand() {
+        ItemStack wand = new ItemStack(Material.BONE, 1);
+        ItemMeta meta = wand.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(WAND_NAME);
+            wand.setItemMeta(meta);
+        }
+        return wand;
+    }
+
+    public static boolean isWand(ItemStack item) {
+        if (item == null || item.getType() != Material.BONE || !item.hasItemMeta()) {
+            return false;
+        }
+        ItemMeta meta = item.getItemMeta();
+        return meta.hasDisplayName() && WAND_NAME.equals(meta.getDisplayName());
+    }
+
+    public static boolean hasWand(Player player) {
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int i = 0; i < contents.length; i++) {
+            if (isWand(contents[i])) {
+                return true;
             }
         }
+        return isWand(player.getInventory().getItemInOffHand());
     }
-    @EventHandler
-    public void onInteract(PlayerInteractEvent e) {
-        if(Main.getMain().usingWand.contains(e.getPlayer().getUniqueId())) {
-            if(e.getPlayer().getItemInHand().getType().equals(Material.BONE)) {
-            if(e.getAction() == Action.LEFT_CLICK_BLOCK) {
-                if(e.getPlayer().getGameMode() == GameMode.SURVIVAL) {
-                    e.getPlayer().sendMessage(ChatColor.GOLD+"First position has been set for "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.GOLD+"!");
-                    API.getAPI().setLoc1(e.getClickedBlock().getLocation());
-                    if(API.getAPI().areSet()) {
-                        e.getPlayer().sendMessage("");
-                        e.getPlayer().sendMessage(ChatColor.GOLD+"The two positions for "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.GOLD+" are set!");
-                        e.getPlayer().sendMessage("");
-                        e.getPlayer().sendMessage(ChatColor.GOLD+"You are ready to type '/prot complete'!");
-                    }
-                }
-            } else
-                if(e.getAction() == Action.RIGHT_CLICK_BLOCK) {
-                    e.getPlayer().sendMessage(ChatColor.GOLD+"Second position has been set for "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.GOLD+"!");
-                    API.getAPI().setLoc2(e.getClickedBlock().getLocation());
-                    if(API.getAPI().areSet()) {
-                        e.getPlayer().sendMessage("");
-                        e.getPlayer().sendMessage(ChatColor.GOLD+"The two positions for "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.GOLD+" are set!");
-                        e.getPlayer().sendMessage("");
-                        e.getPlayer().sendMessage(ChatColor.GOLD+"You are ready to type '/prot complete'!");
-                    }
-                }
+
+    public static void removeWands(Player player) {
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int i = 0; i < contents.length; i++) {
+            if (isWand(contents[i])) {
+                player.getInventory().setItem(i, null);
             }
         }
+        ItemStack offhand = player.getInventory().getItemInOffHand();
+        if (isWand(offhand)) {
+            player.getInventory().setItemInOffHand(null);
+        }
     }
-    @EventHandler
-    public void onPlace(BlockPlaceEvent e) {
-        if(Main.getMain().usingWand.contains(e.getPlayer().getUniqueId())) {
-            e.setCancelled(true);
-            e.getPlayer().sendMessage(ChatColor.RED+"You can not do that in "+ChatColor.YELLOW+"BadgerProtection"+ChatColor.RED+" selection mode!");
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
+    public void onBreak(BlockBreakEvent event) {
+        if (!holdingWand(event.getPlayer())) {
+            return;
+        }
+        event.setCancelled(true);
+        mark(event.getPlayer(), event.getBlock().getLocation(), true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
+    public void onInteract(PlayerInteractEvent event) {
+        if (!holdingWand(event.getPlayer())) {
+            return;
+        }
+        if (event.getAction() != Action.LEFT_CLICK_BLOCK && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+        if (event.getClickedBlock() == null) {
+            return;
+        }
+        event.setCancelled(true);
+        mark(event.getPlayer(), event.getClickedBlock().getLocation(), event.getAction() == Action.LEFT_CLICK_BLOCK);
+    }
+
+    private boolean holdingWand(Player player) {
+        if (!API.getAPI().isSelecting(player.getUniqueId())) {
+            return false;
+        }
+        if (isWand(player.getInventory().getItemInMainHand())) {
+            return true;
+        }
+        return isWand(player.getInventory().getItemInOffHand());
+    }
+
+    private void mark(Player player, org.bukkit.Location location, boolean first) {
+        API regions = API.getAPI();
+        UUID id = player.getUniqueId();
+        boolean changed = first ? regions.setFirst(id, location) : regions.setSecond(id, location);
+        if (!changed) {
+            return;
+        }
+        if (first) {
+            player.sendMessage(ChatColor.GOLD + "First position set for " + ChatColor.YELLOW + "BadgerProtection" + ChatColor.GOLD + ".");
+        } else {
+            player.sendMessage(ChatColor.GOLD + "Second position set for " + ChatColor.YELLOW + "BadgerProtection" + ChatColor.GOLD + ".");
+        }
+        if (regions.hasBoth(id)) {
+            player.sendMessage(ChatColor.GOLD + "Both corners are set. Type " + ChatColor.YELLOW + "/prot complete" + ChatColor.GOLD + " to save the region.");
         }
     }
 }

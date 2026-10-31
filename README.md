@@ -1,42 +1,63 @@
 # BadgerProtection
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+Spawn protection in the style of [jProtection](https://dev.bukkit.org/projects/mcspawnprot), the MCPVP spawn plugin. The spawn area is a cuboid you select in-game. Protection is a flag, not a safe zone you can walk back into.
 
-<h2>Summary</h2>
-This plugin is a continuation of the once awesome mcpvp-based spawn protection of [jProtection] (http://dev.bukkit.org/bukkit-plugins/mcspawnprot/). I have upgraded the plugin however also by making the selection of the spawn and such by cuboid and not a radius. Have you ever wanted a mcpvp-based spawn protection and everyone wants to charge you for it!? Look no more! BadgerProtection is brought to you by ~ TheWolfBadger
+Built for CraftBukkit / Spigot 1.10.
 
-<h2>Get rid of the advertisement</h2>
-Yes, this plugin is free, but the plugin does have an advertisement that only shows to players who join for the first time. [https:www.mc-market.org/resources/272] (https:www.mc-market.org/resources/272) is the same plugin, however it gets rid of the BadgerProtection author credit message (The plugin costs $2.50). So instead of your players seeing the following when they first join, BadgerProtection Advertisement Message they will no longer see this since the version does not include it.
+## How protection works
 
-![alt text] (http://embed.gyazo.com/5e2f697f5e03cad75095d1f214286ef4.png "BadgerProtection Advertisement Message")
+- A player who spawns, respawns, or uses `/spawn` inside the region is protected.
+- Walking out of the region removes protection.
+- Walking back in does not restore it. That player can still be hit, including inside the region, until they `/spawn`.
+- A protected player takes no damage. Hitting them tells you they are protected.
+- Hitting someone who is not protected removes your own protection, and that hit lands.
+- Blocks inside the region cannot be broken, placed, or filled with buckets unless the player has the admin permission. Explosions do not destroy those blocks.
 
-<h2>Help</h2>
-[Video Guide] (https://www.youtube.com/watch?v=OxIbBV8J9go)
+## `/spawn`
 
-<h2>Permissions</h2>
-BadgerProtection.Admin - This gives the users permission to use the command "/prot".
+If another player is within `CheckRadius`, `/spawn` waits `TeleportDelay` seconds. The player has to stand still. Looking around does not cancel the warp. Walking does. When the warp finishes, they get protection back.
 
-<h2>Commands</h2>
-./prot wand - Go into BadgerProtection selection mode.
+## Setup
 
-./prot setspawn - Set the spawn for the command /spawn.
+1. Build the plugin and put the jar in `plugins`. `plugin.yml` and `config.yml` need to be at the root of the jar.
+2. Restart or `/reload` is not required if you drop it in before startup.
+3. In game, as an op:
 
-./prot cancel - Exit the BadgerProtection selection mode.
+```
+/prot wand
+```
 
-./prot complete - Complete the BadgerProtection selection mode if you set the positions.
+Left-click one corner and right-click the other, then:
 
-./spawn - Teleport to the BadgerProtection set spawn.
+```
+/prot complete
+/prot setspawn
+```
 
-<h2>Config</h2>
-```YAML
-TeleportDelay: 10 # (Seconds)
-CheckRadius: 10 # This is the radius around the player it checks. If there is a player within this radius then they have to wait the TeleportDelay until they can teleport safely.
-Messages:
-  GainProtection: '&7You have gained BadgerProtection!'
-  LostProtection: '&7You have lost BadgerProtection!'
-  PlayerHasProtection: '&7The player &d{PLAYER} &7currently has BadgerProtection!'
-  PlayersNearby: '&7There are players nearby! You must wait &e{DELAY}&7 seconds to teleport!'
-  PreventPlace: '&cYou can not break a block protected by &eBadgerProtection&c!'
-  PreventBreak: '&cYou can not place in a Cuboid protected by &eBadgerProtection&c!'
-  TeleportCancelled: '&cWarping cancelled!'
-```  
+Stand where `/spawn` should place players before `setspawn`. That spot should be inside the region.
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `/prot wand` | Gives the selection wand and starts region selection |
+| `/prot complete` | Saves the two corners as the spawn region |
+| `/prot cancel` | Leaves selection mode and removes the wand |
+| `/prot setspawn` | Sets the `/spawn` destination to where you are standing |
+| `/prot info` | Shows the region, spawn, and whether you are protected |
+| `/prot reload` | Reloads `config.yml` |
+| `/spawn` | Warps to spawn and restores protection |
+
+`/prot` can also be run as `/bp` or `/badgerprot`.
+
+## Permissions
+
+| Permission | Default | What it allows |
+| --- | --- | --- |
+| `badgerprotection.admin` | op | `/prot`, and building inside the region |
+| `BadgerProtection.Admin` | op | Same admin access, kept for older permission setups |
+| `badgerprotection.spawn` | everyone | `/spawn` |
+
+## Config
+
+`config.yml` is created in the plugin folder on first run. `TeleportDelay` is the wait in seconds. `CheckRadius` is how close another player has to be to force that wait. Messages use `&` color codes. `{PLAYER}` and `{DELAY}` are filled in where those messages use them.

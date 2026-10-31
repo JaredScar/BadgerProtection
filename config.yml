@@ -1,0 +1,21 @@
+# Seconds a player must stand still before /spawn when someone is within CheckRadius.
+# Looking around does not cancel the warp. Walking does.
+TeleportDelay: 10
+
+# Box around the player, in blocks. Another player inside it forces the TeleportDelay.
+CheckRadius: 10
+
+# Placeholders: {PLAYER} {DELAY}
+Messages:
+  GainProtection: '&7You have gained BadgerProtection!'
+  LostProtection: '&7You have lost BadgerProtection!'
+  PlayerHasProtection: '&7The player &d{PLAYER} &7currently has BadgerProtection!'
+  PlayersNearby: '&7There are players nearby! You must wait &e{DELAY}&7 seconds to teleport!'
+  PreventPlace: '&cYou cannot place blocks in &eBadgerProtection&c!'
+  PreventBreak: '&cYou cannot break blocks in &eBadgerProtection&c!'
+  TeleportCancelled: '&cWarping cancelled!'
+  NoPermission: '&cYou do not have permission to do that.'
+  NotReady: '&cSpawn protection has not been fully set up yet.'
+  AlreadyTeleporting: '&cYou are already waiting to be teleported!'
+  PlayersOnly: '&cYou must be a player to do that.'
+  Reloaded: '&aBadgerProtection configuration reloaded.'
